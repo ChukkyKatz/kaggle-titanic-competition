@@ -173,9 +173,7 @@ public class PredictionJob {
                 .withColumn("Title", regexp_replace(col("Title"),
                 "Lady|Countess|Don|Sir|Jonkheer|Dona", "Royalty"))
                 .withColumn("Title", regexp_replace(col("Title"),
-                        "Capt|Col|Major", "Officer"))
-                .withColumn("Title", regexp_replace(col("Title"),
-                        "Rev|Dr", "Savior"))
+                        "Capt|Col|Major|Rev|Dr", "Officer"))
                 .withColumn("Title", regexp_replace(col("Title"),
                         "Mlle", "Miss"))
                 .withColumn("Title", regexp_replace(col("Title"),
@@ -214,7 +212,7 @@ public class PredictionJob {
     }
 
     private static Dataset<Row> bucketizeAge(final Dataset<Row> dataset) {
-        double[] ageBuckets = {0d, 4d, 12d, 20d, 40d, 60d, 75d, 99d};
+        double[] ageBuckets = {0d, 12d, 20d, 50d, 75d, 99d};
         final Bucketizer ageBucketizer = new Bucketizer()
                 .setSplits(ageBuckets)
                 .setInputCol("Age")
@@ -224,12 +222,12 @@ public class PredictionJob {
     }
 
     private static Dataset<Row> bucketizeFare(final Dataset<Row> dataset) {
-        double[] fareBuckets = {0d, 7.91d, 14.45d, 31d, 120d, 180d, 270d, 515d};
+        double[] fareBuckets = {0d, 7.91d, 14.45d, 31d, 120d, 180d, 515d};
         final Bucketizer ageBucketizer = new Bucketizer()
                 .setSplits(fareBuckets)
                 .setInputCol("Fare")
                 .setOutputCol("fare_f");
-
+        
         return ageBucketizer.transform(dataset);
     }
 
