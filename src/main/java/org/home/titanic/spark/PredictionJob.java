@@ -1,8 +1,8 @@
 package org.home.titanic.spark;
 
 import org.apache.spark.api.java.function.MapFunction;
-import org.apache.spark.ml.classification.DecisionTreeClassificationModel;
-import org.apache.spark.ml.classification.DecisionTreeClassifier;
+import org.apache.spark.ml.classification.RandomForestClassificationModel;
+import org.apache.spark.ml.classification.RandomForestClassifier;
 import org.apache.spark.ml.feature.Bucketizer;
 import org.apache.spark.ml.feature.StringIndexer;
 import org.apache.spark.ml.feature.VectorAssembler;
@@ -80,23 +80,22 @@ public class PredictionJob {
         final var victorizedFeaturesTestDf = featureVectorPrepare(preparedTestDf);
 
         // Model training
-        final DecisionTreeClassifier classifier = new DecisionTreeClassifier()
+        final RandomForestClassifier classifier = new RandomForestClassifier()
                 .setFeaturesCol("features")
-                .setLabelCol("survived_l");
+                .setLabelCol("survived_l")
+                .setNumTrees(10);
 
-        final DecisionTreeClassificationModel dtcModel = classifier.fit(victorizedFeaturesTrainDf);
+        final RandomForestClassificationModel model = classifier.fit(victorizedFeaturesTrainDf);
 
-        final var predictions = dtcModel.transform(victorizedFeaturesTestDf);
+        final var predictions = model.transform(victorizedFeaturesTestDf);
 
         savePredictions(predictions);
         predictions.show(1500);
 
-//        trainDf.orderBy("Fare").show(1000);
-
         spark.stop();
     }
 
-    private Dataset<Row> readData(String path, StructType schema) {
+    private Dataset<Row> readData(final String path, final StructType schema) {
         return spark.read()
                 .option("header", true)
                 .schema(schema)
@@ -137,14 +136,14 @@ public class PredictionJob {
                 .fill(fareMedian, new String[]{"Fare"});
 
         // Filling missed values in "Age" column by median value of this column
-        final var sortedIndexedAge = fareFilledDf.select("Age")
+        final var sortedIndexedAgeDf = fareFilledDf.select("Age")
                 .orderBy("Age")
                 .withColumn("id", row_number()
                         .over(Window.orderBy("Age")));
 
-        final long countsAgeMedian = sortedIndexedAge.count() / 2;
+        final long countsAgeMedian = sortedIndexedAgeDf.count() / 2;
 
-        final double ageMedian = sortedIndexedAge.select("Age")
+        final double ageMedian = sortedIndexedAgeDf.select("Age")
                 .where("id = " + countsAgeMedian)
                 .first()
                 .getDouble(0);
@@ -184,14 +183,14 @@ public class PredictionJob {
                 .withColumn("Title", regexp_replace(col("Title"),
                         "Mme", "Mrs"));
 
-        final var titleIndexer = new StringIndexer()
+        final StringIndexer titleIndexer = new StringIndexer()
                 .setInputCol("Title")
                 .setOutputCol("title_f");
 
         final var titleIndexedDf = titleIndexer.fit(allDataTitleDf).transform(allDataTitleDf);
 
         // Indexing "Sex" column to double values
-        final var sexIndexer = new StringIndexer()
+        final StringIndexer sexIndexer = new StringIndexer()
                 .setInputCol("Sex")
                 .setOutputCol("sex_f");
 
@@ -204,7 +203,7 @@ public class PredictionJob {
         final var allDataFareBucketizedDf = bucketizeFare(allDataAgeBucketizedDf);
 
         // Indexing "Embarked" column to double values
-        final var embarkedIndexer = new StringIndexer()
+        final StringIndexer embarkedIndexer = new StringIndexer()
                 .setInputCol("Embarked")
                 .setOutputCol("embarked_f");
 
@@ -214,9 +213,9 @@ public class PredictionJob {
                 "Sex", "Parch", "FamilySize", "Fare", "Embarked", "Title");
     }
 
-    private static Dataset<Row> bucketizeAge(Dataset<Row> dataset) {
+    private static Dataset<Row> bucketizeAge(final Dataset<Row> dataset) {
         double[] ageBuckets = {0d, 4d, 12d, 20d, 40d, 60d, 75d, 99d};
-        Bucketizer ageBucketizer = new Bucketizer()
+        final Bucketizer ageBucketizer = new Bucketizer()
                 .setSplits(ageBuckets)
                 .setInputCol("Age")
                 .setOutputCol("age_f");
@@ -224,9 +223,9 @@ public class PredictionJob {
         return ageBucketizer.transform(dataset);
     }
 
-    private static Dataset<Row> bucketizeFare(Dataset<Row> dataset) {
+    private static Dataset<Row> bucketizeFare(final Dataset<Row> dataset) {
         double[] fareBuckets = {0d, 7.91d, 14.45d, 31d, 120d, 180d, 270d, 515d};
-        Bucketizer ageBucketizer = new Bucketizer()
+        final Bucketizer ageBucketizer = new Bucketizer()
                 .setSplits(fareBuckets)
                 .setInputCol("Fare")
                 .setOutputCol("fare_f");
@@ -234,8 +233,8 @@ public class PredictionJob {
         return ageBucketizer.transform(dataset);
     }
 
-    private Dataset<Row> featureVectorPrepare(Dataset<Row> dataset) {
-        VectorAssembler vectorAssembler = new VectorAssembler()
+    private Dataset<Row> featureVectorPrepare(final Dataset<Row> dataset) {
+        final VectorAssembler vectorAssembler = new VectorAssembler()
                 .setInputCols(new String[]{"pclass_f", "sibsp_f", "parch_f", "family_size_f",
                         "title_f", "sex_f", "age_f", "fare_f", "embarked_f"})
                 .setOutputCol("features");
@@ -243,12 +242,12 @@ public class PredictionJob {
         return vectorAssembler.transform(dataset);
     }
 
-    private void savePredictions(Dataset<Row> predictions) {
-        StructType solutionSchema = new StructType(new StructField[]{
+    private void savePredictions(final Dataset<Row> predictions) {
+        final StructType solutionSchema = new StructType(new StructField[]{
                 new StructField("PassengerId", DataTypes.IntegerType, false, Metadata.empty()),
                 new StructField("Survived", DataTypes.IntegerType, false, Metadata.empty()),
         });
-        ExpressionEncoder<Row> encoder = RowEncoder.apply(solutionSchema);
+        final ExpressionEncoder<Row> encoder = RowEncoder.apply(solutionSchema);
 
         predictions.select("PassengerId", "prediction")
                 .map((MapFunction<Row, Row>) row ->
