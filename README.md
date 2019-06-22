@@ -1,4 +1,7 @@
 # Titanic: Machine Learning from Disaster
+
+### Technologies: Java 11, Maven, Apache Spark (SQL, ML modules)
+
 Predict survival on the Titanic and get familiar with ML basics
 
 <a href="https://www.kaggle.com/c/titanic">www.kaggle.com competition</a>
