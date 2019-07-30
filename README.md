@@ -14,4 +14,4 @@ One of the reasons that the shipwreck led to such loss of life was that there we
 
 In this challenge, we ask you to complete the analysis of what sorts of people were likely to survive. In particular, we ask you to apply the tools of machine learning to predict which passengers survived the tragedy.
 
-## Final Score is 0.78947, final place is 3188 (more than 10,000 total participants)
+### Final score is 0.78947, final place is 3188 (more than 10,000 total participants)
